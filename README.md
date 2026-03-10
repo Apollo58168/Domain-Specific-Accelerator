@@ -247,20 +247,16 @@ This produces `cnn_ocr.elf` using:
 ### 4. Load & Run on FPGA
 
 1. Program the FPGA with the generated bitstream.
-2. Transfer `cnn_ocr.elf` to the board via UART boot:
+2. Transfer `cnn_ocr.elf` from WSL subsystem to the desktop
    ```bash
    # Use the export script to copy the ELF for loading
    ./export-elf.sh
    ```
-3. Place `data/weights.dat`, `data/test-images.dat`, and `data/test-labels.dat` on the SD card.
+3. Insert SD card into your own computer and place `data/weights.dat`, `data/test-images.dat`, and `data/test-labels.dat` on the SD card.
 4. Connect a serial terminal (115200 baud) and reset the board. The program will:
    - Read weights and test data from SD card
    - Run CNN inference on 100 MNIST test images
    - Print accuracy and execution time
-
-### 5. Simulation (Optional)
-
-Use `hw/src/soc_rtl/soc_tb.v` as the top-level testbench with `hw/src/soc_rtl/memctrl_sim.v` as the memory controller model for behavioral simulation in Vivado.
 
 ## MMIO Address Map
 
