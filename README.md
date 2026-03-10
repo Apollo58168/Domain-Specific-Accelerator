@@ -1,6 +1,6 @@
 # Domain-Specific Accelerator for CNN Inference on Aquila RISC-V SoC
 
-A hardware–software co-designed Domain-Specific Accelerator (DSA) integrated into the [Aquila](https://github.com/eisl-nctu/aquila) RISC-V SoC to accelerate CNN-based handwritten digit recognition (MNIST). The accelerator offloads FMA-intensive computation in convolution, pooling, and fully-connected layers via MMIO-controlled hardware modules using Vivado floating-point IP cores, achieving up to **53.96×** overall speedup over the software-only baseline while preserving inference accuracy.
+A hardware–software co-designed Domain-Specific Accelerator (DSA) integrated into the Aquila RISC-V SoC to accelerate CNN-based handwritten digit recognition (MNIST). The accelerator offloads FMA-intensive computation in convolution, pooling, and fully-connected layers via MMIO-controlled hardware modules using Vivado floating-point IP cores, achieving up to **53.96×** overall speedup over the software-only baseline while preserving inference accuracy.
 
 ## Table of Contents
 
@@ -21,6 +21,10 @@ A hardware–software co-designed Domain-Specific Accelerator (DSA) integrated i
 ## Overview
 
 The CNN model is a 6-layer network achieving ~99% accuracy on the MNIST dataset:
+
+<p align="center">
+  <img src="picture/model.png" alt="CNN Model Architecture" width="700">
+</p>
 
 | Layer | Type            | Description                     |
 | ----- | --------------- | ------------------------------- |
@@ -61,82 +65,94 @@ Software-only inference on Aquila takes **56,333 ms** for 100 test images. This 
 
 The DSA is accessed via the MMIO address range `0xC400_0000 – 0xC4FF_FFFF` and consists of three dedicated sub-modules, each implementing one layer type with its own FSM and on-chip BRAM buffers.
 
+<p align="center">
+  <img src="picture/dsa.drawio.png" alt="DSA Architecture" width="700">
+</p>
+
 ## Repository Structure
 
 ```
 Domain-Specific-Accelerator/
-├── hw/                         # Hardware (Verilog) sources
-│   ├── core_rtl/               # Aquila RISC-V core RTL
-│   │   ├── aquila_config.vh    #   Core configuration parameters
-│   │   ├── aquila_top.v        #   Top-level Aquila core wrapper
-│   │   ├── core_top.v          #   Core pipeline top module
-│   │   ├── alu.v               #   ALU
-│   │   ├── bcu.v               #   Branch control unit
-│   │   ├── bpu.v               #   Branch prediction unit
-│   │   ├── csr_file.v          #   CSR register file
-│   │   ├── dcache.v            #   Data cache
-│   │   ├── icache.v            #   Instruction cache
-│   │   ├── decode.v            #   Decode stage
-│   │   ├── execute.v           #   Execute stage
-│   │   ├── fetch.v             #   Fetch stage
-│   │   ├── memory.v            #   Memory stage
-│   │   ├── writeback.v         #   Writeback stage
-│   │   ├── muldiv.v            #   Multiply/divide unit
-│   │   ├── reg_file.v          #   Integer register file
-│   │   ├── fp_reg_file.v       #   Floating-point register file
-│   │   ├── forwarding_unit.v   #   Data forwarding
-│   │   ├── fp_forwarding_unit.v#   FP data forwarding
-│   │   ├── pipeline_control.v  #   Pipeline control logic
-│   │   ├── program_counter.v   #   Program counter
-│   │   ├── clint.v             #   Core-local interruptor
-│   │   ├── atomic_unit.v       #   Atomic instruction support
-│   │   ├── sram.v              #   Single-port SRAM
-│   │   ├── sram_dp.v           #   Dual-port SRAM
-│   │   └── distri_ram.v        #   Distributed RAM
-│   ├── soc_rtl/                # SoC integration & DSA modules
-│   │   ├── soc_top.v           #   SoC top-level (Aquila + peripherals)
-│   │   ├── soc_tb.v            #   SoC testbench for simulation
-│   │   ├── dsa.v               #   ★ DSA top module (address decode + profiler)
-│   │   ├── conv_layer.v        #   ★ Convolutional layer accelerator
-│   │   ├── pool_layer.v        #   ★ Average pooling layer accelerator
-│   │   ├── fc_layer.v          #   ★ Fully-connected layer accelerator
-│   │   ├── core2axi_if.v       #   Core-to-AXI interface bridge
-│   │   ├── mem_arbiter.v       #   Memory arbiter
-│   │   ├── memctrl_sim.v       #   Memory controller (simulation)
-│   │   ├── cdc_sync.v          #   Clock-domain crossing sync
-│   │   └── uart.v              #   UART controller
-│   ├── mem/
-│   │   └── uartboot.mem        #   Boot ROM memory file
-│   ├── mig/                    #   MIG (Memory Interface Generator) configs
-│   │   ├── mig-arty100t.prj
-│   │   ├── mig-arty35t.prj
-│   │   └── mig-qmcore.prj
-│   └── xdc/                    #   FPGA constraint files
-│       ├── arty.xdc
-│       └── qmcore.xdc
-├── sw/                         # Software (C) sources
-│   ├── cnn_ocr.c               #   Main CNN inference program
-│   ├── cnn_ocr.ld              #   Linker script (DDR memory layout)
-│   ├── file_read.c             #   File I/O for weights/images/labels
+├── hw/                              # Hardware: Vivado project & RTL sources
+│   ├── build.tcl                    #   ★ Vivado batch build script (creates project + IPs)
+│   └── src/                         #   All source files (referenced in-place by build.tcl)
+│       ├── core_rtl/                #   Aquila RISC-V core RTL
+│       │   ├── aquila_config.vh     #     Core configuration parameters
+│       │   ├── aquila_top.v         #     Top-level Aquila core wrapper
+│       │   ├── core_top.v           #     Core pipeline top module
+│       │   ├── alu.v                #     ALU
+│       │   ├── bcu.v                #     Branch control unit
+│       │   ├── bpu.v                #     Branch prediction unit
+│       │   ├── csr_file.v           #     CSR register file
+│       │   ├── dcache.v             #     Data cache
+│       │   ├── icache.v             #     Instruction cache
+│       │   ├── decode.v             #     Decode stage
+│       │   ├── execute.v            #     Execute stage
+│       │   ├── fetch.v              #     Fetch stage
+│       │   ├── memory.v             #     Memory stage
+│       │   ├── writeback.v          #     Writeback stage
+│       │   ├── muldiv.v             #     Multiply/divide unit
+│       │   ├── reg_file.v           #     Integer register file
+│       │   ├── fp_reg_file.v        #     Floating-point register file
+│       │   ├── forwarding_unit.v    #     Data forwarding
+│       │   ├── fp_forwarding_unit.v #     FP data forwarding
+│       │   ├── pipeline_control.v   #     Pipeline control logic
+│       │   ├── program_counter.v    #     Program counter
+│       │   ├── clint.v              #     Core-local interruptor
+│       │   ├── atomic_unit.v        #     Atomic instruction support
+│       │   ├── sram.v               #     Single-port SRAM
+│       │   ├── sram_dp.v            #     Dual-port SRAM
+│       │   └── distri_ram.v         #     Distributed RAM
+│       ├── soc_rtl/                 #   SoC integration & DSA modules
+│       │   ├── soc_top.v            #     SoC top-level (Aquila + peripherals) [synthesis]
+│       │   ├── soc_tb.v             #     SoC testbench [simulation only]
+│       │   ├── dsa.v                #     ★ DSA top module (address decode + profiler)
+│       │   ├── conv_layer.v         #     ★ Convolutional layer accelerator
+│       │   ├── pool_layer.v         #     ★ Average pooling layer accelerator
+│       │   ├── fc_layer.v           #     ★ Fully-connected layer accelerator
+│       │   ├── core2axi_if.v        #     Core-to-AXI interface bridge
+│       │   ├── mem_arbiter.v        #     Memory arbiter
+│       │   ├── memctrl_sim.v        #     Memory controller [simulation only]
+│       │   ├── cdc_sync.v           #     Clock-domain crossing sync
+│       │   └── uart.v               #     UART controller
+│       ├── mem/
+│       │   └── uartboot.mem         #     Boot ROM memory initialization file
+│       ├── mig/                     #   MIG (Memory Interface Generator) project configs
+│       │   ├── mig-arty100t.prj     #     Arty A7-100T DDR3 config
+│       │   ├── mig-arty35t.prj      #     Arty A7-35T DDR3 config
+│       │   └── mig-qmcore.prj       #     QMCore DDR3 config
+│       └── xdc/                     #   FPGA pin/timing constraint files
+│           ├── arty.xdc             #     Arty A7 constraints
+│           └── qmcore.xdc           #     QMCore constraints
+├── sw/                              # Software: CNN inference C application
+│   ├── cnn_ocr.c                    #   Main program — CNN evaluation on 100 MNIST images
+│   ├── cnn_ocr.ld                   #   Linker script (DDR memory layout)
+│   ├── file_read.c                  #   File I/O helpers (read weights/images/labels from SD)
 │   ├── file_read.h
-│   ├── Makefile                #   Build system (cross-compilation)
-│   ├── export-elf.sh           #   Script to export .elf to target
-│   ├── cnn_ocr.objdump         #   Disassembly reference
-│   ├── data/                   #   MNIST test data
-│   │   ├── test-images.dat
-│   │   ├── test-labels.dat
-│   │   └── weights.dat
-│   └── inc_cnn/                #   CNN library headers
-│       ├── network.h           #     Network definition
-│       ├── layer.h             #     Layer base interface
-│       ├── convolutional_layer.h#    Conv layer (with DSA MMIO calls)
-│       ├── average_pooling_layer.h#  Pooling layer (with DSA MMIO calls)
-│       ├── fully_connected_layer.h#  FC layer (with DSA MMIO calls)
-│       ├── activation_function.h#    ReLU / identity activations
-│       ├── config.h            #     Data type & build configs
-│       ├── dummy_head_layer.h  #     Dummy head (input) layer
-│       ├── list.h              #     Linked list utilities
-│       └── util.h              #     Misc utilities
+│   ├── Makefile                     #   Cross-compilation build (riscv32-unknown-elf-gcc)
+│   ├── export-elf.sh                #   Helper script to export .elf for UART boot loading
+│   ├── cnn_ocr.objdump              #   Disassembly reference
+│   ├── data/                        #   MNIST test data (placed on SD card)
+│   │   ├── test-images.dat          #     100 test images
+│   │   ├── test-labels.dat          #     Ground-truth labels
+│   │   └── weights.dat              #     Pre-trained CNN weights
+│   └── inc_cnn/                     #   CNN library headers
+│       ├── network.h                #     Network struct & forward propagation
+│       ├── layer.h                  #     Layer base interface
+│       ├── convolutional_layer.h    #     Conv layer (with DSA MMIO calls)
+│       ├── average_pooling_layer.h  #     Pooling layer (with DSA MMIO calls)
+│       ├── fully_connected_layer.h  #     FC layer (with DSA MMIO calls)
+│       ├── activation_function.h    #     ReLU / identity activation functions
+│       ├── config.h                 #     Data type & build configuration
+│       ├── dummy_head_layer.h       #     Dummy head (input) layer
+│       ├── list.h                   #     Intrusive linked-list utilities
+│       └── util.h                   #     Misc utilities
+├── picture/                         # Documentation assets
+│   ├── model.png                    #   CNN model architecture diagram
+│   ├── dsa.drawio.png               #   DSA hardware architecture diagram
+│   ├── conv_layer_FSM.drawio.png    #   Convolution layer FSM diagram
+│   ├── pool_layer_FSM.drawio.png    #   Pooling layer FSM diagram
+│   └── fc_layer_FSM.drawio.png      #   Fully-connected layer FSM diagram
 └── README.md
 ```
 
@@ -149,7 +165,8 @@ Domain-Specific-Accelerator/
 
 ### Software Toolchain
 
-- **RISC-V GNU Toolchain** (`riscv32-unknown-elf-gcc`) — built for RV32IMA / ILP32
+- **RISC-V GNU Toolchain** (`riscv32-unknown-elf-gcc`) — **GCC version 15.1.0 required**
+  - Built for RV32IMA / ILP32
   - Set the `$RISCV` environment variable to point to the toolchain installation
 - **Embedded C library** (`elibc`) — a minimal C library for Aquila (located at `../elibc/` relative to `sw/`)
 - **GNU Make**
@@ -169,17 +186,39 @@ The following Vivado FP IPs must be instantiated in the block design or generate
 
 ### 1. Generate Vivado Project
 
-1. Open Vivado and create a new project targeting your FPGA board.
-2. Add all Verilog sources from `hw/core_rtl/` and `hw/soc_rtl/`.
-3. Add constraint files from `hw/xdc/` (select `arty.xdc` or `qmcore.xdc`).
-4. Add MIG configuration from `hw/mig/`.
-5. Generate required Floating-Point IP cores (FMA, ADD, MUL) from the Vivado IP Catalog with **latency = 2, non-blocking mode**.
+The hardware project is created entirely from a TCL script (`hw/build.tcl`). This script reads all RTL sources from `hw/src/`, adds constraint and MIG files, and generates the required Vivado IPs (FIFOs, Clock Wizard, SPI, MIG, and **Floating-Point FMA / ADD / MUL**).
+
+```bash
+cd hw/
+
+# Launch Vivado in batch mode to create the project
+vivado -mode batch -source build.tcl
+```
+
+This will:
+
+1. Create a Vivado project `aquila_ap/` targeting the **xc7a100tcsg324-1** (Arty A7-100T).
+2. Read all Verilog source files from `src/core_rtl/` and `src/soc_rtl/`.
+3. Add `soc_top.v` as the synthesis top module and `soc_tb.v` / `memctrl_sim.v` as simulation-only files.
+4. Read `src/mem/uartboot.mem` and `src/xdc/arty.xdc`.
+5. Auto-generate all required IPs:
+   - Async FIFOs (address, data, signal)
+   - Clock Wizard (50 MHz core / 166.67 MHz / 200 MHz)
+   - AXI Quad SPI
+   - MIG 7 Series DDR3 controller
+   - **Floating-Point FMA** (`floating_point_0`) — non-blocking, single-precision
+   - **Floating-Point MUL** (`floating_point_mul`) — non-blocking, single-precision
+   - **Floating-Point ADD** (`floating_point_add`) — non-blocking, single-precision
+6. Open the Vivado GUI with the project ready.
+
+> **Adding custom modules**: If you add new Verilog files (e.g., `src/soc_rtl/my_module.v`), append a `read_verilog` line in `build.tcl` after the existing file list.
 
 ### 2. Synthesize & Implement
 
-```bash
-# In Vivado GUI or via TCL
-# Run Synthesis → Implementation → Generate Bitstream
+Inside the Vivado GUI (or via TCL):
+
+```
+Run Synthesis → Run Implementation → Generate Bitstream
 ```
 
 Verify that **WNS ≥ 0** (no timing violations). Using FP IP latency = 1 will cause timing closure failures.
@@ -187,9 +226,10 @@ Verify that **WNS ≥ 0** (no timing violations). Using FP IP latency = 1 will c
 ### 3. Build the Software ELF
 
 ```bash
+# Navigate to the software directory
 cd sw/
 
-# Ensure $RISCV points to the riscv32-unknown-elf toolchain
+# Ensure $RISCV points to the riscv32-unknown-elf toolchain (GCC 15.1.0)
 export RISCV=/path/to/riscv32-unknown-elf
 
 # Build the CNN inference ELF
@@ -220,7 +260,7 @@ This produces `cnn_ocr.elf` using:
 
 ### 5. Simulation (Optional)
 
-Use `hw/soc_rtl/soc_tb.v` as the top-level testbench with `hw/soc_rtl/memctrl_sim.v` as the memory controller model for behavioral simulation in Vivado.
+Use `hw/src/soc_rtl/soc_tb.v` as the top-level testbench with `hw/src/soc_rtl/memctrl_sim.v` as the memory controller model for behavioral simulation in Vivado.
 
 ## MMIO Address Map
 
@@ -254,6 +294,10 @@ Use `hw/soc_rtl/soc_tb.v` as the top-level testbench with `hw/soc_rtl/memctrl_si
 
 **FSM States**: `S_IDLE → S_INIT → S_LOAD_WEIGHT → S_LOAD_IMG_I → S_CNT → S_STORE`
 
+<p align="center">
+  <img src="picture/conv_layer_FSM.drawio.png" alt="Convolution Layer FSM" width="600">
+</p>
+
 - Supports two convolution layers (Conv1: 1→3ch, Conv2: 3→12ch) with separate weight buffers
 - On-chip BRAM for weights, input image, and output feature map
 - Sliding-window index generation in hardware
@@ -265,6 +309,10 @@ Use `hw/soc_rtl/soc_tb.v` as the top-level testbench with `hw/soc_rtl/memctrl_si
 
 **FSM States**: `S_IDLE → S_INIT → S_LOAD_IMG_I → S_ADD → S_MUL → S_STORE`
 
+<p align="center">
+  <img src="picture/pool_layer_FSM.drawio.png" alt="Pooling Layer FSM" width="600">
+</p>
+
 - 2×2 window average pooling with dedicated ADD and MUL IPs
 - ADD IP accumulates 4 elements, MUL IP multiplies by 0.25
 - Fully buffered: loads entire feature map, outputs pooled result
@@ -272,6 +320,10 @@ Use `hw/soc_rtl/soc_tb.v` as the top-level testbench with `hw/soc_rtl/memctrl_si
 ### `fc_layer.v` — Fully-Connected Layer Accelerator
 
 **FSM States**: `S_IDLE → S_INIT → S_LOAD_WEIGHT → S_LOAD_BIAS → S_LOAD_IMG_I → S_MUL → S_ADD → S_STORE`
+
+<p align="center">
+  <img src="picture/fc_layer_FSM.drawio.png" alt="FC Layer FSM" width="600">
+</p>
 
 - Supports FC1 (192→30) and FC2 (30→10) with separate weight/bias buffers
 - Bias-aware initialization for correct forward propagation
